@@ -1,0 +1,687 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>二分查找思想搞定轮播视频匹配问题 | AsyncWay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="Li Shuai">
+    
+
+    
+    <meta name="description" content="之前两个月的时间全组投入到了我们自己的TV launcher的开发, 这算是比较重要的项目, 涉及到公司未来OTT的战略性产品, 所以重视程度比较高。我负责了轮播服务的后端开发, 当然整个技术栈还是以Tornado/Redis/MongoDB为主。经常听到兄弟们抱怨学习了那么多算法, 进BAT也得面试算法什么的, 有个啥子用, 撸了这么多年代码, 用不到啥算法, 不也照样撸的风声水起吗。哥下面就小">
+<meta property="og:type" content="article">
+<meta property="og:title" content="二分查找思想搞定轮播视频匹配问题">
+<meta property="og:url" content="https://cyrusin.github.io/2015/08/25/binary_search/index.html">
+<meta property="og:site_name" content="AsyncWay">
+<meta property="og:description" content="之前两个月的时间全组投入到了我们自己的TV launcher的开发, 这算是比较重要的项目, 涉及到公司未来OTT的战略性产品, 所以重视程度比较高。我负责了轮播服务的后端开发, 当然整个技术栈还是以Tornado/Redis/MongoDB为主。经常听到兄弟们抱怨学习了那么多算法, 进BAT也得面试算法什么的, 有个啥子用, 撸了这么多年代码, 用不到啥算法, 不也照样撸的风声水起吗。哥下面就小">
+<meta property="og:updated_time" content="2016-12-16T08:06:36.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="二分查找思想搞定轮播视频匹配问题">
+<meta name="twitter:description" content="之前两个月的时间全组投入到了我们自己的TV launcher的开发, 这算是比较重要的项目, 涉及到公司未来OTT的战略性产品, 所以重视程度比较高。我负责了轮播服务的后端开发, 当然整个技术栈还是以Tornado/Redis/MongoDB为主。经常听到兄弟们抱怨学习了那么多算法, 进BAT也得面试算法什么的, 有个啥子用, 撸了这么多年代码, 用不到啥算法, 不也照样撸的风声水起吗。哥下面就小">
+<meta name="twitter:creator" content="@xiaoLeeV5">
+
+    
+    <link rel="alternative" href="/atom.xml" title="AsyncWay" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+  <body>
+    <header>
+      <div>
+		
+			<div id="imglogo">
+				<a href="/"><img src="/img/logo.png" alt="AsyncWay" title="AsyncWay"/></a>
+			</div>
+			
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="AsyncWay">AsyncWay</a></h1>
+				<h2 class="blog-motto">Think &amp; Code</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">Home</a></li>
+					
+						<li><a href="/archives">Archives</a></li>
+					
+						<li><a href="/about">About</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:cyrusin.github.io">
+					</form>
+					
+					</li>
+                    <li><a href="/atom.xml">RSS</a></li>
+				</ul>
+			</nav>			
+</div>
+
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/08/25/binary_search/" title="二分查找思想搞定轮播视频匹配问题" itemprop="url">二分查找思想搞定轮播视频匹配问题</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="https://cyrusin.github.io/about" title="Li Shuai" target="_blank" itemprop="author">Li Shuai</a>
+		
+  <p class="article-time">
+    <time datetime="2015-08-25T06:49:00.000Z" itemprop="datePublished"> 发表于 2015-08-25</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<p>之前两个月的时间全组投入到了我们自己的TV launcher的开发, 这算是比较重要的项目, 涉及到公司未来OTT的战略性产品, 所以重视程度比较高。<br>我负责了轮播服务的后端开发, 当然整个技术栈还是以Tornado/Redis/MongoDB为主。经常听到兄弟们抱怨学习了那么多算法, 进BAT也得面试算法什么的, 有个啥子用, 撸了这么多年代码, 用不到啥算法, 不也照样撸的风声水起吗。哥下面就小小展示一下, 其实算法这东西是有用的, 你带着算法和数据结构的一些思想思考问题, 和你仅仅凭经验写东西, 结果是很不一样的。</p>
+<p>所谓轮播:指的是像电视台那样的一天24小时的滚动播放,由服务端生成播放列表(频道\频道的视频列表等), 并计算好起始时间,用户每次打开Launcher时, 客户端请求频道的当前播放视频列表, 服务端会返回一定数量的视频列表给客户端, 这些视频每一个都有begin_time和end_time标记起始时间, 同时服务端返一个current_time的当前时间戳, 客户端匹配播放当前播放的视频。</p>
+<p>我们用MongoDB做持久化存储, 服务端会通过定时任务生成每个频道的某一时间段的视频播放列表, 并为每个视频信息标记begin_time和end_time。考虑到这种列表的东西很适合缓存到Redis, 所以我们每次会把生成的视频按begin_time排序将这个列表整个塞到Redis, 构成一个Redis的List。这样的话问题简化成了: 每次客户端来请求某一频道的当前播放视频列表(比如Redis中的List长为500个, 客户端每次要当前时间点前20后30共51个), 我们从Redis中找到该频道对应的视频列表, 查询当前播放视频, 并返回当前视频的前后视频组成的视频列表。</p>
+<p>典型的<strong>查找问题</strong>:</p>
+<blockquote>
+<p>   输入: <code>current_time(UNIX timestamp)</code><br>   待查找的列表: <code>有序的Redis列表, 每一个元素都是一个视频信息的JSON串</code><br>   输出: <code>满足begin_time &lt;= current_time &lt; end_time的在列表中的索引及反序列化的视频信息</code></p>
+</blockquote>
+<p>与纯二分查找的问题略有差异, 但基本思想确都是一致的。其实一开始的时候有想法写成顺序查找的版本, 但是后来分析一下, 很明显顺序查找的方法会随着时间推移, 列表末尾的那些视频会慢死你。</p>
+<p>代码如下:</p>
+<pre><code>def binary_search_t(L, cur_time, trans_func=json.loads):
+    &apos;&apos;&apos;binary_search_t(list, timestamp, function) -&gt; index, transfered_tartget_element
+
+    use binary search algorithm to find target element in sorted list,
+    each element needs to be transfered to sortable object within &apos;trans_func&apos;.
+    &apos;L&apos;: list contains some elements that sorted by some attribute(e.g. &apos;begin_time&apos;)
+    &apos;cur_time&apos;: target value(current timestamp)
+    &apos;trans_func&apos;: function used to transfer element to be sortable, default is json.loads
+    e.g. L=[&quot;{&apos;begin_time&apos;:...,&apos;end_time&apos;:...}&quot;,&quot;{...}&quot;...]
+    &apos;&apos;&apos;
+    if not L:
+        return -1, None
+
+    low = 0
+    high = len(L) - 1
+    while low &lt;= high:
+        mid = (low + high) &gt;&gt; 1
+        try:
+            mid_val = trans_func(L[mid])
+            begin_time = mid_val.get(&apos;begin_time&apos;)
+            end_time = mid_val.get(&apos;end_time&apos;)
+        except Exception, e:
+            logging.exception(e)
+            #存在非法数据,停止搜索
+            return -1, None
+
+        if begin_time &lt;= cur_time:
+            if end_time &gt; cur_time:
+                return mid, mid_val
+            else:
+                low = mid + 1
+        else:
+            high = mid - 1
+    return -1, None 
+</code></pre>  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/算法/">算法</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/算法/">算法</a><a href="/tags/项目/">项目</a><a href="/tags/二分查找/">二分查找</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="https://cyrusin.github.io/2015/08/25/binary_search/" data-title="二分查找思想搞定轮播视频匹配问题 | AsyncWay" data-tsina="3024687697" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2015/08/26/mongo20150826/" title="项目连接多MongoDB库的问题">
+  <strong>上一篇：</strong><br/>
+  <span>
+  项目连接多MongoDB库的问题</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/04/07/新的开始/"  title="新的开始">
+ <strong>下一篇：</strong><br/> 
+ <span>新的开始
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section id="comments" class="comment">
+	<div class="ds-thread" data-thread-key="2015/08/25/binary_search/" data-title="二分查找思想搞定轮播视频匹配问题" data-url="https://cyrusin.github.io/2015/08/25/binary_search/"></div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ 
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/Hexo/" title="Hexo">Hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Memcached/" title="Memcached">Memcached<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/MongoDB/" title="MongoDB">MongoDB<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Nginx/" title="Nginx">Nginx<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Python/" title="Python">Python<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Redis/" title="Redis">Redis<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Tornado/" title="Tornado">Tornado<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/协程/" title="协程">协程<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/技术/" title="技术">技术<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/服务器/" title="服务器">服务器<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/算法/" title="算法">算法<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/技术/" title="技术">技术<sup>16</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Python/" title="Python">Python<sup>15</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Tornado/" title="Tornado">Tornado<sup>4</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/项目/" title="项目">项目<sup>4</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/网络IO/" title="网络IO">网络IO<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/网络编程/" title="网络编程">网络编程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Nginx/" title="Nginx">Nginx<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Lua/" title="Lua">Lua<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MongoDB/" title="MongoDB">MongoDB<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Redis/" title="Redis">Redis<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Linux/" title="Linux">Linux<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/二分查找/" title="二分查找">二分查找<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Memcached/" title="Memcached">Memcached<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/mongoengine/" title="mongoengine">mongoengine<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/算法/" title="算法">算法<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Motor/" title="Motor">Motor<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/C/" title="C">C<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/日志/" title="日志">日志<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/协程/" title="协程">协程<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://toutiao.io/" target="_blank" title="开发者的首选阅读分享平台">开发者头条</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://blog.jobbole.com/" target="_blank" title="伯乐在线">伯乐在线</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://planetpython.org/" target="_blank" title="PlanetPython">PlanetPython</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://lucumr.pocoo.org/" target="_blank" title="Pycoder's Weekly">PyCoder&#39;sWeekly</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://www.pythonweekly.com/" target="_blank" title="PythonWeekly">PythonWeekly</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://importpython.com/newsletter/" target="_blank" title="ImportPythonWeekly">ImportPythonWeekly</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://www.fullstackpython.com/" target="_blank" title="FullstackPython">FullstackPython</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="https://python.zeef.com/alan.richmond" target="_blank" title="PythonZEEF">PythonZEEF</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="https://www.reddit.com/r/python" target="_blank" title="PythonSubreddit">PythonSubreddit</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://jessenoller.com/good-to-great-python-reads/" target="_blank" title="a collection of python must-reads">python-must-reads</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="https://www.jeffknupp.com/" target="_blank" title="Jeff Knupp的blog">WritingIdiomaticPython</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/mixlee/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=3024687697&verifier=8ee35701&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello ,I&#39;m a developer focus on backend technology of web. <br/>
+			This is my blog, thanks for reading it.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://weibo.com/xiaolee123" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/cyrusin" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/2541392" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		<a href="https://twitter.com/xiaoLeeV5" target="_blank" class="icon-twitter" title="twitter"></a>
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/mixlee" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		<a href="https://www.zhihu.com/people/cyrusin" target="_blank" class="icon-zhihu" title="知乎"></a>
+		
+		
+		
+		<a href="mailto:lysh0526@gmail.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2016 
+		
+		<a href="https://cyrusin.github.io/about" target="_blank" title="Li Shuai">Li Shuai</a>
+		
+		
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<a href="#" class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#nothing"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+});     
+</script>
+
+
+
+<script type="text/javascript">
+  var duoshuoQuery = {short_name:"cyrusin"};
+  (function() {
+    var ds = document.createElement('script');
+    ds.type = 'text/javascript';ds.async = true;
+    ds.src = '//static.duoshuo.com/embed.js';
+    ds.charset = 'UTF-8';
+    (document.getElementsByTagName('head')[0] 
+    || document.getElementsByTagName('body')[0]).appendChild(ds);
+  })();
+</script> 
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+<script type="text/javascript">
+var _bdhmProtocol = (("https:" == document.location.protocol) ? " https://" : " http://");
+document.write(unescape("%3Cscript src='" + _bdhmProtocol + "hm.baidu.com/h.js%3F62acfc9311f41b2f234045e170daea66' type='text/javascript'%3E%3C/script%3E"));
+</script>
+
+
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+
+  </body>
+</html>

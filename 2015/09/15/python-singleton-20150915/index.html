@@ -1,0 +1,707 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>在Python中实现单例模式 | AsyncWay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="Li Shuai">
+    
+
+    
+    <meta name="description" content="有些时候你的项目中难免需要一些全局唯一的对象,这些对象大多是一些工具性的东西,在Python中实现单例模式并不是什么难事。以下总结几种方法:
+##使用类装饰器使用装饰器实现单例类的时候,类本身并不知道自己是单例的,所以写代码的人可以不care这个,只要正常写自己的类的实现就可以,类的单例有装饰器保证。
+def singleton(cls):
+    instances = {}
+    def _">
+<meta property="og:type" content="article">
+<meta property="og:title" content="在Python中实现单例模式">
+<meta property="og:url" content="https://cyrusin.github.io/2015/09/15/python-singleton-20150915/index.html">
+<meta property="og:site_name" content="AsyncWay">
+<meta property="og:description" content="有些时候你的项目中难免需要一些全局唯一的对象,这些对象大多是一些工具性的东西,在Python中实现单例模式并不是什么难事。以下总结几种方法:
+##使用类装饰器使用装饰器实现单例类的时候,类本身并不知道自己是单例的,所以写代码的人可以不care这个,只要正常写自己的类的实现就可以,类的单例有装饰器保证。
+def singleton(cls):
+    instances = {}
+    def _">
+<meta property="og:updated_time" content="2016-12-16T08:06:36.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="在Python中实现单例模式">
+<meta name="twitter:description" content="有些时候你的项目中难免需要一些全局唯一的对象,这些对象大多是一些工具性的东西,在Python中实现单例模式并不是什么难事。以下总结几种方法:
+##使用类装饰器使用装饰器实现单例类的时候,类本身并不知道自己是单例的,所以写代码的人可以不care这个,只要正常写自己的类的实现就可以,类的单例有装饰器保证。
+def singleton(cls):
+    instances = {}
+    def _">
+<meta name="twitter:creator" content="@xiaoLeeV5">
+
+    
+    <link rel="alternative" href="/atom.xml" title="AsyncWay" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+  <body>
+    <header>
+      <div>
+		
+			<div id="imglogo">
+				<a href="/"><img src="/img/logo.png" alt="AsyncWay" title="AsyncWay"/></a>
+			</div>
+			
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="AsyncWay">AsyncWay</a></h1>
+				<h2 class="blog-motto">Think &amp; Code</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">Home</a></li>
+					
+						<li><a href="/archives">Archives</a></li>
+					
+						<li><a href="/about">About</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:cyrusin.github.io">
+					</form>
+					
+					</li>
+                    <li><a href="/atom.xml">RSS</a></li>
+				</ul>
+			</nav>			
+</div>
+
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/09/15/python-singleton-20150915/" title="在Python中实现单例模式" itemprop="url">在Python中实现单例模式</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="https://cyrusin.github.io/about" title="Li Shuai" target="_blank" itemprop="author">Li Shuai</a>
+		
+  <p class="article-time">
+    <time datetime="2015-09-15T07:17:58.000Z" itemprop="datePublished"> 发表于 2015-09-15</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<p>有些时候你的项目中难免需要一些全局唯一的对象,这些对象大多是一些工具性的东西,在Python中实现单例模式并不是什么难事。以下总结几种方法:</p>
+<p>##使用类装饰器<br>使用装饰器实现单例类的时候,类本身并不知道自己是单例的,所以写代码的人可以不care这个,只要正常写自己的类的实现就可以,类的单例有装饰器保证。</p>
+<pre><code>def singleton(cls):
+    instances = {}
+    def _wrapper(*args, **kwargs):
+        if cls not in instances:
+            instances[cls] = cls(*args, **kwargs)
+        return instances[cls]
+    return _wrapper
+</code></pre><p>你会发现<code>singleton</code>装饰器内部使用了一个<code>dict</code>。当然你也可以用其他的方式,不过以下的实现是<strong>错误</strong>的:</p>
+<pre><code>def singleton(cls):
+    _instance = None #外部作用域的引用对于嵌套的内部作用域是只读的
+    def _wrapper(*args, **kwargs):
+        if _instance is None: #解释器会抛出&quot;UnboundLocalError: ...referenced before assignment&quot;
+            _instance = cls(*args, **kwargs) #赋值行为使解释器将&quot;_instance&quot;看作局部变量
+        return _instance
+    return _wrapper 
+</code></pre><p>##使用元类(<code>__metaclass__</code>)和可调用对象(<code>__call__</code>)<br>Python的对象系统中一些皆对象,类也不例外,可以称之为”类型对象”,比较绕,但仔细思考也不难:类本身也是一种对象,只不过这种对象很特殊,它表示某一种类型。是对象,那必然是实例化来的,那么谁实例化后是这种类型对象呢?也就是元类。</p>
+<p>Python中,<code>class</code>关键字表示定义一个类对象,此时解释器会按一定规则寻找<code>__metaclass__</code>,如果找到了,就调用对应的元类实现来实例化该类对象;没找到,就会调用<code>type</code>元类来实例化该类对象。</p>
+<p><code>__call__</code>是Python的魔术方法,Python的面向对象是”Duck type”的,意味着对象的行为可以通过实现协议来实现,可以看作是一种特殊的接口形式。某个类实现了<code>__call__</code>方法意味着该类的对象是可调用的,可以想像函数调用的样子。再考虑一下<code>foo=Foo()</code>这种实例化的形式,是不是很像啊。结合元类的概念,可以看出,<code>Foo</code>类是单例的,则在调用<code>Foo()</code>的时候每次都返回了同样的对象。而<code>Foo</code>作为一个类对象是单例的,意味着它的类(即生成它的元类)是实现了<code>__call__</code>方法的。所以可以如下实现:</p>
+<pre><code>class Singleton(type):
+    def __init__(cls, name, bases, attrs):
+        super(Singleton, cls).__init__(name, bases, attrs)
+        cls._instance = None
+    def __call__(cls, *args, **kwargs):
+        if cls._instance is None
+            # 以下不要使用&apos;cls._instance = cls(*args, **kwargs)&apos;, 防止死循环,
+            # cls的调用行为已经被当前&apos;__call__&apos;协议拦截了
+            # 使用super(Singleton, cls).__call__来生成cls的实例
+            cls._instance = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instance
+
+class Foo(object): #单例类
+    __metaclass__ = Singleton
+
+&gt;&gt;&gt;a = Foo()
+&gt;&gt;&gt;b = Foo()
+&gt;&gt;&gt;a is b
+&gt;&gt;&gt;True
+&gt;&gt;&gt;a.x = 1
+&gt;&gt;&gt;b.x
+&gt;&gt;&gt;1
+</code></pre><p>##使用<code>__new__</code><br><code>__init__</code>不是Python对象的构造方法,<code>__init__</code>只负责初始化实例对象,在调用<code>__init__</code>方法之前,会首先调用<code>__new__</code>方法生成对象,可以认为<code>__new__</code>方法充当了构造方法的角色。所以可以在<code>__new__</code>中加以控制,使得某个类只生成唯一对象。具体实现时可以实现一个父类,重载<code>__new__</code>方法,单例类只需要继承这个父类就好。</p>
+<pre><code>class Singleton(object):
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(cls, &apos;_instance&apos;):
+            cls._instance = super(Singleton, cls).__new__(cls, *args, **kwargs)
+        return cls._instance
+
+class Foo(Singleton): #单例类
+    a = 1
+</code></pre>  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/Python/">Python</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/技术/">技术</a><a href="/tags/Python/">Python</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="https://cyrusin.github.io/2015/09/15/python-singleton-20150915/" data-title="在Python中实现单例模式 | AsyncWay" data-tsina="3024687697" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2015/09/21/python-oop20150921/" title="Python中的元类,类,对象">
+  <strong>上一篇：</strong><br/>
+  <span>
+  Python中的元类,类,对象</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/09/08/cache20150908/"  title="开着跑车换轮子：基于版本号与互斥锁,在Web服务端安全高效的定向强制更新Memcached缓存">
+ <strong>下一篇：</strong><br/> 
+ <span>开着跑车换轮子：基于版本号与互斥锁,在Web服务端安全高效的定向强制更新Memcached缓存
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section id="comments" class="comment">
+	<div class="ds-thread" data-thread-key="2015/09/15/python-singleton-20150915/" data-title="在Python中实现单例模式" data-url="https://cyrusin.github.io/2015/09/15/python-singleton-20150915/"></div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ 
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/Hexo/" title="Hexo">Hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Memcached/" title="Memcached">Memcached<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/MongoDB/" title="MongoDB">MongoDB<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Nginx/" title="Nginx">Nginx<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Python/" title="Python">Python<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Redis/" title="Redis">Redis<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Tornado/" title="Tornado">Tornado<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/协程/" title="协程">协程<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/技术/" title="技术">技术<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/服务器/" title="服务器">服务器<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/算法/" title="算法">算法<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/技术/" title="技术">技术<sup>16</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Python/" title="Python">Python<sup>15</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Tornado/" title="Tornado">Tornado<sup>4</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/项目/" title="项目">项目<sup>4</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/网络IO/" title="网络IO">网络IO<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/网络编程/" title="网络编程">网络编程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Nginx/" title="Nginx">Nginx<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Lua/" title="Lua">Lua<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MongoDB/" title="MongoDB">MongoDB<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Redis/" title="Redis">Redis<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Linux/" title="Linux">Linux<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/二分查找/" title="二分查找">二分查找<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Memcached/" title="Memcached">Memcached<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/mongoengine/" title="mongoengine">mongoengine<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/算法/" title="算法">算法<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Motor/" title="Motor">Motor<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/C/" title="C">C<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/日志/" title="日志">日志<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/协程/" title="协程">协程<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://toutiao.io/" target="_blank" title="开发者的首选阅读分享平台">开发者头条</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://blog.jobbole.com/" target="_blank" title="伯乐在线">伯乐在线</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://planetpython.org/" target="_blank" title="PlanetPython">PlanetPython</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://lucumr.pocoo.org/" target="_blank" title="Pycoder's Weekly">PyCoder&#39;sWeekly</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://www.pythonweekly.com/" target="_blank" title="PythonWeekly">PythonWeekly</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://importpython.com/newsletter/" target="_blank" title="ImportPythonWeekly">ImportPythonWeekly</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://www.fullstackpython.com/" target="_blank" title="FullstackPython">FullstackPython</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="https://python.zeef.com/alan.richmond" target="_blank" title="PythonZEEF">PythonZEEF</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="https://www.reddit.com/r/python" target="_blank" title="PythonSubreddit">PythonSubreddit</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://jessenoller.com/good-to-great-python-reads/" target="_blank" title="a collection of python must-reads">python-must-reads</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="https://www.jeffknupp.com/" target="_blank" title="Jeff Knupp的blog">WritingIdiomaticPython</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/mixlee/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=3024687697&verifier=8ee35701&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello ,I&#39;m a developer focus on backend technology of web. <br/>
+			This is my blog, thanks for reading it.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://weibo.com/xiaolee123" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/cyrusin" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/2541392" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		<a href="https://twitter.com/xiaoLeeV5" target="_blank" class="icon-twitter" title="twitter"></a>
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/mixlee" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		<a href="https://www.zhihu.com/people/cyrusin" target="_blank" class="icon-zhihu" title="知乎"></a>
+		
+		
+		
+		<a href="mailto:lysh0526@gmail.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2016 
+		
+		<a href="https://cyrusin.github.io/about" target="_blank" title="Li Shuai">Li Shuai</a>
+		
+		
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<a href="#" class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#nothing"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+});     
+</script>
+
+
+
+<script type="text/javascript">
+  var duoshuoQuery = {short_name:"cyrusin"};
+  (function() {
+    var ds = document.createElement('script');
+    ds.type = 'text/javascript';ds.async = true;
+    ds.src = '//static.duoshuo.com/embed.js';
+    ds.charset = 'UTF-8';
+    (document.getElementsByTagName('head')[0] 
+    || document.getElementsByTagName('body')[0]).appendChild(ds);
+  })();
+</script> 
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+<script type="text/javascript">
+var _bdhmProtocol = (("https:" == document.location.protocol) ? " https://" : " http://");
+document.write(unescape("%3Cscript src='" + _bdhmProtocol + "hm.baidu.com/h.js%3F62acfc9311f41b2f234045e170daea66' type='text/javascript'%3E%3C/script%3E"));
+</script>
+
+
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+
+  </body>
+</html>

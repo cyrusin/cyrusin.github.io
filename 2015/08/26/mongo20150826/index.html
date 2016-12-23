@@ -1,0 +1,686 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>项目连接多MongoDB库的问题 | AsyncWay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="Li Shuai">
+    
+
+    
+    <meta name="description" content="项目中用到了MongoDB和mongoengine, 由于平时开发都是正式线、测试线两条线, 所以正式线连接生产环境下的数据库, 而测试线连接测试线的数据库, 两个库的物理服务器配置不同, 也就是IP和端口不一致。
+之前他们一般把配置文件放在一个叫settings.py的文件里, 同时把本地配置放在local_settings.py里, settings.py里会在末尾执行一下import loc">
+<meta property="og:type" content="article">
+<meta property="og:title" content="项目连接多MongoDB库的问题">
+<meta property="og:url" content="https://cyrusin.github.io/2015/08/26/mongo20150826/index.html">
+<meta property="og:site_name" content="AsyncWay">
+<meta property="og:description" content="项目中用到了MongoDB和mongoengine, 由于平时开发都是正式线、测试线两条线, 所以正式线连接生产环境下的数据库, 而测试线连接测试线的数据库, 两个库的物理服务器配置不同, 也就是IP和端口不一致。
+之前他们一般把配置文件放在一个叫settings.py的文件里, 同时把本地配置放在local_settings.py里, settings.py里会在末尾执行一下import loc">
+<meta property="og:updated_time" content="2016-12-16T08:06:36.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="项目连接多MongoDB库的问题">
+<meta name="twitter:description" content="项目中用到了MongoDB和mongoengine, 由于平时开发都是正式线、测试线两条线, 所以正式线连接生产环境下的数据库, 而测试线连接测试线的数据库, 两个库的物理服务器配置不同, 也就是IP和端口不一致。
+之前他们一般把配置文件放在一个叫settings.py的文件里, 同时把本地配置放在local_settings.py里, settings.py里会在末尾执行一下import loc">
+<meta name="twitter:creator" content="@xiaoLeeV5">
+
+    
+    <link rel="alternative" href="/atom.xml" title="AsyncWay" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+  <body>
+    <header>
+      <div>
+		
+			<div id="imglogo">
+				<a href="/"><img src="/img/logo.png" alt="AsyncWay" title="AsyncWay"/></a>
+			</div>
+			
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="AsyncWay">AsyncWay</a></h1>
+				<h2 class="blog-motto">Think &amp; Code</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">Home</a></li>
+					
+						<li><a href="/archives">Archives</a></li>
+					
+						<li><a href="/about">About</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:cyrusin.github.io">
+					</form>
+					
+					</li>
+                    <li><a href="/atom.xml">RSS</a></li>
+				</ul>
+			</nav>			
+</div>
+
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/08/26/mongo20150826/" title="项目连接多MongoDB库的问题" itemprop="url">项目连接多MongoDB库的问题</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="https://cyrusin.github.io/about" title="Li Shuai" target="_blank" itemprop="author">Li Shuai</a>
+		
+  <p class="article-time">
+    <time datetime="2015-08-26T07:22:09.000Z" itemprop="datePublished"> 发表于 2015-08-26</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<p>项目中用到了MongoDB和mongoengine, 由于平时开发都是正式线、测试线两条线, 所以正式线连接生产环境下的数据库, 而测试线连接测试线的数据库, 两个库的物理服务器配置不同, 也就是IP和端口不一致。</p>
+<p>之前他们一般把配置文件放在一个叫<code>settings.py</code>的文件里, 同时把本地配置放在<code>local_settings.py</code>里, <code>settings.py</code>里会在末尾执行一下<code>import local_settings</code>的动作, 这样, 在测试环境下, 一些线上配置可以通过在<code>local_settings.py</code>里重写从而被覆盖。</p>
+<p>随着项目的演进, 开始出现一些测试线的服务必须调正式线的情况, 这样的话, 纯覆盖配置就不好使了, 有些不同的模块会连不同的库, 所以一般都是单独配置, 比如有一些服务用的了<code>mongo_a</code>我们就在<code>settings</code>里配:</p>
+<pre><code>mongo_a_config = {
+    &apos;db&apos;: &apos;mongo_a&apos;,
+    &apos;host&apos;: 0.0.0.0, #正式线
+    ...
+    }
+</code></pre><p>假如还有一个<code>mongo_b</code>, 在<code>settings.py</code>里配:</p>
+<pre><code>mongo_b_config = {
+   &apos;db&apos;: &apos;mongo_b&apos;,
+   &apos;host&apos;: 0.0.0.0, #正式线
+   ....
+   }
+</code></pre><p>当你想在测试线让<code>mongo_a</code>连正式线的库, <code>mongo_b</code>连测试线的库的时候, 只需在<code>local_settings.py</code>里覆盖<code>mongo_b</code>的配置就好了:</p>
+<pre><code>mongo_b_config = {
+   &apos;db&apos;: &apos;mongo_b&apos;,
+   &apos;host&apos;: 1.1.1.1, #测试线
+   ....
+   }
+</code></pre><p>看似很简单, 但在真正改完开测的时候, 测试线发生了比较诡异的现象, 明明在<code>local_settings.py</code>里覆盖了正式线的配置, 可连的时候总是连到正式线的库里去, 代码里用mongoengine的connect函数去获取连接, 逻辑也不复杂, 到底是啥原因?</p>
+<p>又到了哥该出手的时候了, 非常好的学习机会。 一个牛逼的工程师, 不应该只是写代码牛逼, 其debug功力也应该灰常犀利, 于代码之中往来穿梭, 调用关系一清二楚, 逻辑推理清晰严谨。这正是一个好好解决问题的机会。</p>
+<p>从项目代码来看, <code>mongo_b</code>的测试线配置已经覆盖正式线配置无疑, 由于<code>mongo_a</code>和<code>mongo_b</code>的正式线的配置的host和port都是一致, 再看代码, <code>mongo_a</code>的连接在前, <code>mongo_b</code>的连接在后, 很明显, 测试线的<code>mongo_b</code>用的连接是正式线的<code>mongo_a</code>的连接。</p>
+<p>所以问题来了, 就在mongoengine的connect上, 后来的连接都复用了第一次的连接。虽然我们写过数据库的封装, 但有一些基本的概念还是有的, 对于数据库而言, 维护连接是比较耗资源的, 很多都用进程池或线程池搞。所以作为数据库封装的作者, 肯定不会你调一个connect, 我就重连一次, 这是比较二的方法。一般连接都是全局的, 除非你想显式获取新的连接, 这个时候这种情况一般是通过为连接设置一种区分的方法, 比如: 别名(alias), 来区分不同的连接。</p>
+<p>我猜测是由于代码里用<code>mongo_a</code>的时候已经先调了mongoengine的connect, 所以用后续的<code>mongo_b</code>的时候, 即使你调了connect, mongoengine也不会傻到重新连一个, 而是直接复用了上次的连接实例。正式线没问题是因为正式线的<code>mongo_a</code>和<code>mongo_b</code>其实是位于同一个host:port下, 所以正式线的项目里每个进程也是只有一个连接实例。为了印证一下, 去看源码吧。</p>
+<p>mongoengine的connect:</p>
+<pre><code>def connect(db, alias=DEFAULT_CONNECTION_NAME, **kwargs):
+    global _connections
+    if alias not in _connections:
+            register_connection(alias, db, **kwargs)
+    return get_connection(alias)
+</code></pre><p>connect函数的参数里有一个<code>alias</code>, 取了默认值, 也就是意味着当你的项目里有不止一次调用connect的时候, 他们都有共同的连接别名, 并且<code>_connections</code>变量是global的, 也就是全局共享的。connect的时候先判断这个<code>alias</code>是不是在我们的全局的<code>_connections</code>里, 没有的话才会<code>register_connection(alias)</code>, 和哥的猜测一致。我们的测试线里连<code>mongo_a</code>的时候已经connect过了, 并且由于我们没有为<code>mongo_b</code>设置<code>alias</code>, 所以连<code>mongo_b</code>的时候直接<code>return get_connection(alias)</code>了, 就是直接返回了我们<code>connect(**mongo_a_config)</code>时候的连接, 当然就是线上的库了。</p>
+<p>所以解决方案很简单, 在<code>local_settings.py</code>里加个<code>alias</code>就好了:</p>
+<pre><code>mongo_b_config = {
+   &apos;db&apos;: &apos;mongo_b&apos;,
+   &apos;host&apos;: 1.1.1.1, #测试线
+   &apos;alias&apos;: &quot;&quot;, #连接别名
+   ...
+   }
+</code></pre>  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/MongoDB/">MongoDB</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/项目/">项目</a><a href="/tags/mongoengine/">mongoengine</a><a href="/tags/MongoDB/">MongoDB</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="https://cyrusin.github.io/2015/08/26/mongo20150826/" data-title="项目连接多MongoDB库的问题 | AsyncWay" data-tsina="3024687697" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2015/08/27/TCPIO-20150827/" title="网络IO: 同步、异步、阻塞、非阻塞、IO复用">
+  <strong>上一篇：</strong><br/>
+  <span>
+  网络IO: 同步、异步、阻塞、非阻塞、IO复用</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/08/25/binary_search/"  title="二分查找思想搞定轮播视频匹配问题">
+ <strong>下一篇：</strong><br/> 
+ <span>二分查找思想搞定轮播视频匹配问题
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section id="comments" class="comment">
+	<div class="ds-thread" data-thread-key="2015/08/26/mongo20150826/" data-title="项目连接多MongoDB库的问题" data-url="https://cyrusin.github.io/2015/08/26/mongo20150826/"></div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ 
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/Hexo/" title="Hexo">Hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Memcached/" title="Memcached">Memcached<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/MongoDB/" title="MongoDB">MongoDB<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Nginx/" title="Nginx">Nginx<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Python/" title="Python">Python<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Redis/" title="Redis">Redis<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Tornado/" title="Tornado">Tornado<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/协程/" title="协程">协程<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/技术/" title="技术">技术<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/服务器/" title="服务器">服务器<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/算法/" title="算法">算法<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/技术/" title="技术">技术<sup>16</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Python/" title="Python">Python<sup>15</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Tornado/" title="Tornado">Tornado<sup>4</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/项目/" title="项目">项目<sup>4</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/网络IO/" title="网络IO">网络IO<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/网络编程/" title="网络编程">网络编程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Nginx/" title="Nginx">Nginx<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Lua/" title="Lua">Lua<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MongoDB/" title="MongoDB">MongoDB<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Redis/" title="Redis">Redis<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Linux/" title="Linux">Linux<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/二分查找/" title="二分查找">二分查找<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Memcached/" title="Memcached">Memcached<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/mongoengine/" title="mongoengine">mongoengine<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/算法/" title="算法">算法<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Motor/" title="Motor">Motor<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/C/" title="C">C<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/日志/" title="日志">日志<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/协程/" title="协程">协程<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://toutiao.io/" target="_blank" title="开发者的首选阅读分享平台">开发者头条</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://blog.jobbole.com/" target="_blank" title="伯乐在线">伯乐在线</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://planetpython.org/" target="_blank" title="PlanetPython">PlanetPython</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://lucumr.pocoo.org/" target="_blank" title="Pycoder's Weekly">PyCoder&#39;sWeekly</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://www.pythonweekly.com/" target="_blank" title="PythonWeekly">PythonWeekly</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://importpython.com/newsletter/" target="_blank" title="ImportPythonWeekly">ImportPythonWeekly</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://www.fullstackpython.com/" target="_blank" title="FullstackPython">FullstackPython</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="https://python.zeef.com/alan.richmond" target="_blank" title="PythonZEEF">PythonZEEF</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="https://www.reddit.com/r/python" target="_blank" title="PythonSubreddit">PythonSubreddit</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://jessenoller.com/good-to-great-python-reads/" target="_blank" title="a collection of python must-reads">python-must-reads</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="https://www.jeffknupp.com/" target="_blank" title="Jeff Knupp的blog">WritingIdiomaticPython</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/mixlee/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=3024687697&verifier=8ee35701&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello ,I&#39;m a developer focus on backend technology of web. <br/>
+			This is my blog, thanks for reading it.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://weibo.com/xiaolee123" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/cyrusin" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/2541392" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		<a href="https://twitter.com/xiaoLeeV5" target="_blank" class="icon-twitter" title="twitter"></a>
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/mixlee" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		<a href="https://www.zhihu.com/people/cyrusin" target="_blank" class="icon-zhihu" title="知乎"></a>
+		
+		
+		
+		<a href="mailto:lysh0526@gmail.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2016 
+		
+		<a href="https://cyrusin.github.io/about" target="_blank" title="Li Shuai">Li Shuai</a>
+		
+		
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<a href="#" class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#nothing"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+});     
+</script>
+
+
+
+<script type="text/javascript">
+  var duoshuoQuery = {short_name:"cyrusin"};
+  (function() {
+    var ds = document.createElement('script');
+    ds.type = 'text/javascript';ds.async = true;
+    ds.src = '//static.duoshuo.com/embed.js';
+    ds.charset = 'UTF-8';
+    (document.getElementsByTagName('head')[0] 
+    || document.getElementsByTagName('body')[0]).appendChild(ds);
+  })();
+</script> 
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+<script type="text/javascript">
+var _bdhmProtocol = (("https:" == document.location.protocol) ? " https://" : " http://");
+document.write(unescape("%3Cscript src='" + _bdhmProtocol + "hm.baidu.com/h.js%3F62acfc9311f41b2f234045e170daea66' type='text/javascript'%3E%3C/script%3E"));
+</script>
+
+
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+
+  </body>
+</html>

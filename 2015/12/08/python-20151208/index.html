@@ -1,0 +1,736 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>打破递归栈的深度限制: 解析一种Python尾递归优化的方法 | AsyncWay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="Li Shuai">
+    
+
+    
+    <meta name="description" content="Python的递归调用栈的深度有限制, 可以通过sys.getrecursionlimit()查看。
+尾递归在很多语言中都可以被编译器优化, 基本都是直接复用旧的执行栈, 不用再创建新的栈帧, 原理上其实也很简单, 因为尾递归在本质上看的话递归调用是整个子过程调用的最后执行语句, 所以之前的栈帧的内容已经不再需要, 完全可以被复用。
+需要注意的是, 一定记住尾递归的特点是: 递归调用是整个子过程调">
+<meta property="og:type" content="article">
+<meta property="og:title" content="打破递归栈的深度限制: 解析一种Python尾递归优化的方法">
+<meta property="og:url" content="https://cyrusin.github.io/2015/12/08/python-20151208/index.html">
+<meta property="og:site_name" content="AsyncWay">
+<meta property="og:description" content="Python的递归调用栈的深度有限制, 可以通过sys.getrecursionlimit()查看。
+尾递归在很多语言中都可以被编译器优化, 基本都是直接复用旧的执行栈, 不用再创建新的栈帧, 原理上其实也很简单, 因为尾递归在本质上看的话递归调用是整个子过程调用的最后执行语句, 所以之前的栈帧的内容已经不再需要, 完全可以被复用。
+需要注意的是, 一定记住尾递归的特点是: 递归调用是整个子过程调">
+<meta property="og:updated_time" content="2016-12-16T08:06:36.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="打破递归栈的深度限制: 解析一种Python尾递归优化的方法">
+<meta name="twitter:description" content="Python的递归调用栈的深度有限制, 可以通过sys.getrecursionlimit()查看。
+尾递归在很多语言中都可以被编译器优化, 基本都是直接复用旧的执行栈, 不用再创建新的栈帧, 原理上其实也很简单, 因为尾递归在本质上看的话递归调用是整个子过程调用的最后执行语句, 所以之前的栈帧的内容已经不再需要, 完全可以被复用。
+需要注意的是, 一定记住尾递归的特点是: 递归调用是整个子过程调">
+<meta name="twitter:creator" content="@xiaoLeeV5">
+
+    
+    <link rel="alternative" href="/atom.xml" title="AsyncWay" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+  <body>
+    <header>
+      <div>
+		
+			<div id="imglogo">
+				<a href="/"><img src="/img/logo.png" alt="AsyncWay" title="AsyncWay"/></a>
+			</div>
+			
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="AsyncWay">AsyncWay</a></h1>
+				<h2 class="blog-motto">Think &amp; Code</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">Home</a></li>
+					
+						<li><a href="/archives">Archives</a></li>
+					
+						<li><a href="/about">About</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:cyrusin.github.io">
+					</form>
+					
+					</li>
+                    <li><a href="/atom.xml">RSS</a></li>
+				</ul>
+			</nav>			
+</div>
+
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/12/08/python-20151208/" title="打破递归栈的深度限制: 解析一种Python尾递归优化的方法" itemprop="url">打破递归栈的深度限制: 解析一种Python尾递归优化的方法</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="https://cyrusin.github.io/about" title="Li Shuai" target="_blank" itemprop="author">Li Shuai</a>
+		
+  <p class="article-time">
+    <time datetime="2015-12-08T09:26:53.000Z" itemprop="datePublished"> 发表于 2015-12-08</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<p>Python的递归调用栈的深度有限制, 可以通过<code>sys.getrecursionlimit()</code>查看。</p>
+<p>尾递归在很多语言中都可以被编译器优化, 基本都是直接复用旧的执行栈, 不用再创建新的栈帧, 原理上其实也很简单, 因为尾递归在本质上看的话递归调用是整个子过程调用的最后执行语句, 所以之前的栈帧的内容已经不再需要, 完全可以被复用。</p>
+<p>需要注意的是, 一定记住尾递归的特点是: 递归调用是整个子过程调用的最后一步, 否则就不是真正的尾递归了, 如下就不是真正的尾递归, 虽然递归调用出现在尾部:</p>
+<pre><code>def fib(n):
+    if n == 0:
+        return 0
+    elif n == 1:
+        return 1
+    else:
+        return fib(n-1) + fib(n-2)
+</code></pre><p>很明显递归调用并不是整个计算过程的最后一步, 计算<code>fib(n)</code>是需要先递归求得<code>fib(n-1)</code>和<code>fib(n-2)</code>, 然后做一步加法才能得到最终的结果。</p>
+<p>如下是尾递归:</p>
+<pre><code>def fib(n, a, b):
+    if n == 1:
+        return a
+    else:
+        return fib(n-1, b, a+b)
+</code></pre><p>关于Python中的尾递归调用有一段<a href="http://code.activestate.com/recipes/474088/" target="_blank" rel="external">神奇的代码</a>:</p>
+<pre><code>import sys
+
+class TailCallException:
+    def __init__(self, args, kwargs):
+        self.args = args
+        self.kwargs = kwargs
+
+def tail_call_optimized(func):
+    def _wrapper(*args, **kwargs):
+        f = sys._getframe()
+        if f.f_back and f.f_back.f_back and f.f_code == f.f_back.f_back.f_code:
+            raise TailCallException(args, kwargs)
+
+        else:
+            while True:
+                try:
+                    return func(*args, **kwargs)
+                except TailCallException, e:
+                    args = e.args
+                    kwargs = e.kwargs
+    return _wrapper
+
+@tail_call_optimized
+def fib(n, a, b):
+    if n == 1:
+        return a
+    else:
+        return fib(n-1, b, a+b)
+
+r = fib(1200, 0, 1) #突破了调用栈的深度限制
+</code></pre><p>以上的代码是怎样的工作的呢？</p>
+<p>理解它需要对Python虚拟机的函数调用有一定的理解。其实以上代码和其他语言对尾递归的调用的优化原理都是相似的,那就是在尾递归调用的时候重复使用旧的栈帧, 因为之前说过, 尾递归本身在调用过程中, 旧的栈帧里面那些内容已经没有用了, 所以可以被复用。</p>
+<p>Python的函数调用首先要了解<code>code object, function object, frame object</code>这三个object(对象), <code>code object</code>是静态的概念, 是对一个可执行的代码块的抽象, module, function, class等等都会被生成<code>code object</code>, 这个对象的属性包含了”编译器”(Python是解释型的，此处的编译器准确来说只是编译生成字节码的)对代码的静态分析的结果, 包含字节码指令, 常量表, 符号表等等。<code>function object</code>是函数对象, 函数是第一类对象, 说的就是这个对象。当解释器执行到<code>def fib(...)</code>语句的时候(<code>MAKE_FUNCTION</code>), 就会基于<code>code object</code>生成对应的<code>function object</code>。</p>
+<p>但是生成<code>function object</code>并没有执行它, 当真正执行函数调用的时候, <code>fib(...)</code>这时候对应的字节码指令(<code>CALL_FUNCITON</code>), 可以看一下, CPython的源码, 真正执行的时候Python虚拟机会模拟x86CPU执行指令的大致结构, 而运行时栈帧的抽象就是<code>frame obejct</code>, 这玩意儿就模拟了类似C里面运行时栈, 寄存器等等运行时状态, 当函数内部又有函数调用的时候, 则又会针对内部的嵌套的函数调用生成对应的<code>frame object</code>, 这样看上去整个虚拟机就是一个栈帧连着又一个栈帧, 类似一个链表, 当前栈帧通过<code>f_back</code>这个指针指向上一栈帧, 这样你才能在执行完毕, 退出当前帧的时候回退到上一帧。和C里执行栈的增长退出模式很像。</p>
+<p><code>frame object</code>栈帧对象只有在当前函数执行的时候才会产生, 所以你只能在函数内通过<code>sys._getframe()</code>调用来获取当前执行帧对象。通过<code>f.f_back</code>获取上一帧, <code>f.f_back.f_back</code>来获取当前帧的上一帧的上一帧(当前帧的“爷爷”)。</p>
+<p>另外一个需要注意到的是, 对于任何对尾递归而言, 其执行过程可以线性展开, 此时你会发现,  最终结果的产生完全可以从任意中间状态开始计算, 最终都能得到同样的执行结果。如果把函数参数看作状态(<code>state_N</code>)的话, 也就是<code>tail_call(state_N)-&gt;tail_call(state_N-1)-&gt;tail_call(state_N-2)-&gt;...-&gt;tail_call(state_0)</code>, <code>state_0</code>是递归临界条件, 也就是递归收敛的最终状态, 而你在执行过程中, 从任一起始状态(<code>state_N</code>)到收敛状态(<code>state_0</code>)的中间状态<code>state_x</code>开始递归, 都可以得到同样的结果。</p>
+<p>当Python执行过程中发生异常(错误)时(或者也可以直接手动抛出<code>raise ...</code>), 该异常会从当前栈帧开始向旧的执行栈帧传递, 直到有一个旧的栈帧捕获这个异常, 而该栈帧之后(比它更新的栈帧)的栈帧就被回收了。</p>
+<p>有了以上的理论基础, 就能理解之前代码的逻辑了:</p>
+<ol>
+<li><p>尾递归函数fib被tail_call_optimized装饰, 则fib这个名字实际所指的function object变成了tail_call_optimized里return的_wrapper, fib 指向_wrapper。</p>
+</li>
+<li><p>注意_wrapper里return func(*args, **kwargs)这句, 这个func还是未被tail_call_optimized装饰的fib（装饰器的基本原理）, func是实际的fib, 我们称之为real_fib。</p>
+</li>
+<li><p>当执行fib(1200, 0, 1)时, 实际是执行_wrapper的逻辑, 获取帧对象也是_wrapper对应的, 我们称之为frame_wapper。</p>
+</li>
+<li><p>由于我们是第一次调用, 所以”if f.f_back and f.f_back.f_back and f.f_code == f.f_back.f_back.f_code”这句里f.f_code==f.f_back.f_back.f_code显然不满足。</p>
+</li>
+<li><p>继续走循环, 内部调用func(*args, **kwargs), 之前说过这个func是没被装饰器装饰的fib, 也就是real_fib。</p>
+</li>
+<li><p>由于是函数调用, 所以虚拟机会创建real_fib的栈帧, 我们称之为frame_real_fib, 然后执行real_fib里的代码, 此时当前线程内的栈帧链表按从旧到新依次为:</p>
+<pre><code>旧的虚拟机栈帧，frame_wrapper，frame_real_fib(当前执行帧)
+</code></pre></li>
+</ol>
+<p>real_fib里的逻辑会走return fib(n-1, b, a+b), 有一个嵌套调用, 此时的fib是谁呢？此时的fib就是我们的_wrapper, 因为我们第一步说过, fib这个名字已经指向了_wrapper这个函数对象。</p>
+<ol>
+<li><p>依然是函数调用的一套, 创建执行栈帧, 我们称之为frame_wrapper2, 注意： 执行栈帧是动态生成的, 虽然对应的是同样函数对象(_wrapper), 但依然是不同的栈帧对象, 所以称之为frame_wrapper2。 今后进入frame_wrapper2执行, 注意此时的虚拟机的运行时栈帧的结构按从旧到新为: </p>
+<pre><code>旧的虚拟机栈帧、frame_wrapper、frame_real_fib、frame_wrapper2(当前执行栈帧)
+</code></pre></li>
+<li><p>进入frame_wrapper2执行后, 首先获取当前执行帧, 即frame_wrapper2, 紧接着, 执行判断, 此时:</p>
+<pre><code>if f.f_back and f.f_back.f_back and f.f_code == f.f_back.f_back.f_code
+</code></pre></li>
+</ol>
+<p>以上这句就满足了, f.f_code是当前帧frame_wrapper2的执行帧的code对象, f.f_back.f_back.f_code从当前的执行帧链表来看是frame_wrapper的执行帧的code对象, 很显然他们都是同一个code块的code object(def _wrapper…..)。于是抛出异常, 通过异常的方式, 把传过来的参数保留, 然后, 异常向旧的栈帧传递, 直到被捕获, 而之后的栈帧被回收, 即抛出异常后, 直到被捕获时, 虚拟机内的执行帧是:</p>
+<pre><code>旧的虚拟机栈帧、frame_wrapper(当前执行帧)
+</code></pre><p>于是现在恢复执行frame_wrapper这个帧, 直接顺序执行了, 由于是个循环, 同时参数通过异常的方式被捕获, 所以又进入了return func(*args, **kwargs)这句, 根据我们之前说的, 尾递归从递归过程中任意中间状态都可以收敛到最终状态, 所以就这样, 执行两个帧, 搞出中间状态, 然后抛异常, 回收两个帧, 这样一直循环直到求出最终结果。</p>
+<p>在整个递归过程中, 没有频繁的递归一次, 生成一个帧, 如果你不用这个优化, 可能你递归1000次, 就要生成1000个栈帧, 一旦达到递归栈的深度限制, 就挂了。</p>
+<p>使用了这个装饰器之后, 最多生成3个帧, 随后就被回收了, 所以是不可能达到递归栈的深度的限制的。</p>
+<p>注意： <strong>这个装饰器只能针对尾递归使用。</strong></p>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/Python/">Python</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/技术/">技术</a><a href="/tags/Python/">Python</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="https://cyrusin.github.io/2015/12/08/python-20151208/" data-title="打破递归栈的深度限制: 解析一种Python尾递归优化的方法 | AsyncWay" data-tsina="3024687697" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2016/03/11/python-closure-20160311/" title="Python闭包的两个注意事项">
+  <strong>上一篇：</strong><br/>
+  <span>
+  Python闭包的两个注意事项</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/11/27/lua-20151127/"  title="Nginx与Lua: 一种利用error_page实现鉴权服务故障转移的尝试">
+ <strong>下一篇：</strong><br/> 
+ <span>Nginx与Lua: 一种利用error_page实现鉴权服务故障转移的尝试
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section id="comments" class="comment">
+	<div class="ds-thread" data-thread-key="2015/12/08/python-20151208/" data-title="打破递归栈的深度限制: 解析一种Python尾递归优化的方法" data-url="https://cyrusin.github.io/2015/12/08/python-20151208/"></div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ 
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/Hexo/" title="Hexo">Hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Memcached/" title="Memcached">Memcached<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/MongoDB/" title="MongoDB">MongoDB<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Nginx/" title="Nginx">Nginx<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Python/" title="Python">Python<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Redis/" title="Redis">Redis<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Tornado/" title="Tornado">Tornado<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/协程/" title="协程">协程<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/技术/" title="技术">技术<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/服务器/" title="服务器">服务器<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/算法/" title="算法">算法<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/技术/" title="技术">技术<sup>16</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Python/" title="Python">Python<sup>15</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Tornado/" title="Tornado">Tornado<sup>4</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/项目/" title="项目">项目<sup>4</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/网络IO/" title="网络IO">网络IO<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/网络编程/" title="网络编程">网络编程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Nginx/" title="Nginx">Nginx<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Lua/" title="Lua">Lua<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MongoDB/" title="MongoDB">MongoDB<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Redis/" title="Redis">Redis<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Linux/" title="Linux">Linux<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/二分查找/" title="二分查找">二分查找<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Memcached/" title="Memcached">Memcached<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/mongoengine/" title="mongoengine">mongoengine<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/算法/" title="算法">算法<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Motor/" title="Motor">Motor<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/C/" title="C">C<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/日志/" title="日志">日志<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/协程/" title="协程">协程<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://toutiao.io/" target="_blank" title="开发者的首选阅读分享平台">开发者头条</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://blog.jobbole.com/" target="_blank" title="伯乐在线">伯乐在线</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://planetpython.org/" target="_blank" title="PlanetPython">PlanetPython</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://lucumr.pocoo.org/" target="_blank" title="Pycoder's Weekly">PyCoder&#39;sWeekly</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://www.pythonweekly.com/" target="_blank" title="PythonWeekly">PythonWeekly</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://importpython.com/newsletter/" target="_blank" title="ImportPythonWeekly">ImportPythonWeekly</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://www.fullstackpython.com/" target="_blank" title="FullstackPython">FullstackPython</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="https://python.zeef.com/alan.richmond" target="_blank" title="PythonZEEF">PythonZEEF</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="https://www.reddit.com/r/python" target="_blank" title="PythonSubreddit">PythonSubreddit</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://jessenoller.com/good-to-great-python-reads/" target="_blank" title="a collection of python must-reads">python-must-reads</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="https://www.jeffknupp.com/" target="_blank" title="Jeff Knupp的blog">WritingIdiomaticPython</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/mixlee/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=3024687697&verifier=8ee35701&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello ,I&#39;m a developer focus on backend technology of web. <br/>
+			This is my blog, thanks for reading it.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://weibo.com/xiaolee123" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/cyrusin" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/2541392" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		<a href="https://twitter.com/xiaoLeeV5" target="_blank" class="icon-twitter" title="twitter"></a>
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/mixlee" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		<a href="https://www.zhihu.com/people/cyrusin" target="_blank" class="icon-zhihu" title="知乎"></a>
+		
+		
+		
+		<a href="mailto:lysh0526@gmail.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2016 
+		
+		<a href="https://cyrusin.github.io/about" target="_blank" title="Li Shuai">Li Shuai</a>
+		
+		
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<a href="#" class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#nothing"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+});     
+</script>
+
+
+
+<script type="text/javascript">
+  var duoshuoQuery = {short_name:"cyrusin"};
+  (function() {
+    var ds = document.createElement('script');
+    ds.type = 'text/javascript';ds.async = true;
+    ds.src = '//static.duoshuo.com/embed.js';
+    ds.charset = 'UTF-8';
+    (document.getElementsByTagName('head')[0] 
+    || document.getElementsByTagName('body')[0]).appendChild(ds);
+  })();
+</script> 
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+<script type="text/javascript">
+var _bdhmProtocol = (("https:" == document.location.protocol) ? " https://" : " http://");
+document.write(unescape("%3Cscript src='" + _bdhmProtocol + "hm.baidu.com/h.js%3F62acfc9311f41b2f234045e170daea66' type='text/javascript'%3E%3C/script%3E"));
+</script>
+
+
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+
+  </body>
+</html>

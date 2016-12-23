@@ -1,0 +1,716 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>Linux的IO多路复用: select/poll/epoll | AsyncWay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="Li Shuai">
+    
+
+    
+    <meta name="description" content="Linux里的IO多路复用是有效提高IO效率的技术。主要有select、poll、epoll三种。
+selectselect调用的函数接口是:
+int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout);
+参数说明:
+
+nfds: fdset中最大描述符值加1">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux的IO多路复用: select/poll/epoll">
+<meta property="og:url" content="https://cyrusin.github.io/2015/11/15/iomultiplexing-20151115/index.html">
+<meta property="og:site_name" content="AsyncWay">
+<meta property="og:description" content="Linux里的IO多路复用是有效提高IO效率的技术。主要有select、poll、epoll三种。
+selectselect调用的函数接口是:
+int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout);
+参数说明:
+
+nfds: fdset中最大描述符值加1">
+<meta property="og:updated_time" content="2016-12-16T08:06:36.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux的IO多路复用: select/poll/epoll">
+<meta name="twitter:description" content="Linux里的IO多路复用是有效提高IO效率的技术。主要有select、poll、epoll三种。
+selectselect调用的函数接口是:
+int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout);
+参数说明:
+
+nfds: fdset中最大描述符值加1">
+<meta name="twitter:creator" content="@xiaoLeeV5">
+
+    
+    <link rel="alternative" href="/atom.xml" title="AsyncWay" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+  <body>
+    <header>
+      <div>
+		
+			<div id="imglogo">
+				<a href="/"><img src="/img/logo.png" alt="AsyncWay" title="AsyncWay"/></a>
+			</div>
+			
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="AsyncWay">AsyncWay</a></h1>
+				<h2 class="blog-motto">Think &amp; Code</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">Home</a></li>
+					
+						<li><a href="/archives">Archives</a></li>
+					
+						<li><a href="/about">About</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:cyrusin.github.io">
+					</form>
+					
+					</li>
+                    <li><a href="/atom.xml">RSS</a></li>
+				</ul>
+			</nav>			
+</div>
+
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/11/15/iomultiplexing-20151115/" title="Linux的IO多路复用: select/poll/epoll" itemprop="url">Linux的IO多路复用: select/poll/epoll</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="https://cyrusin.github.io/about" title="Li Shuai" target="_blank" itemprop="author">Li Shuai</a>
+		
+  <p class="article-time">
+    <time datetime="2015-11-15T08:31:10.000Z" itemprop="datePublished"> 发表于 2015-11-15</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<p>Linux里的IO多路复用是有效提高IO效率的技术。主要有select、poll、epoll三种。</p>
+<h1 id="select"><a href="#select" class="headerlink" title="select"></a>select</h1><p>select调用的函数接口是:</p>
+<pre><code>int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout);
+</code></pre><p>参数说明:</p>
+<blockquote>
+<p>nfds: fdset中最大描述符值加1, fdset是一个位数组, 大小为__FD_SETSIZE(1024), 位数组的每一位表示该描述符是否被检查<br>readfds, writefds, exceptfds: 三个位数组, 非别对应监听不同类型读写及错误事件的描述符。可被内核修改用于通知相应事件<br>timeout: 超时时间, 可被内核修改, 则其值是超时剩余时间</p>
+</blockquote>
+<p>基本原理:</p>
+<blockquote>
+<p>用户进程调用select后阻塞, select对应内核态的sys_select, 将readfds, writefds, exceptfds对应的fd_set拷贝到内核, 内核通过轮询的方式检查注册的描述符, 对于事件发生的描述符记录到临时fd_set, 最终会拷贝到用户进程空间，轮询完毕后返回。<br>没有事件发生时, 睡眠到超时返回。然后进行下次轮询<br>select对于监视的描述符有数量限制, __FD_SETSIZE(1024)个</p>
+</blockquote>
+<h1 id="poll"><a href="#poll" class="headerlink" title="poll"></a>poll</h1><p>poll的函数接口:</p>
+<pre><code>int poll(struct pollfd *fds, nfds_t fds, int timeout);
+
+struct pollfd {
+    int fd; /*描述符*/
+    short events; /*关注的事件*/
+    short revents; /*内核报告的实际发生的事件*/
+};
+</code></pre><p>参数说明:</p>
+<blockquote>
+<p>fds: 结构体数组, 每一个结构体表示一个描述符及该描述符上的关注事件、发生的事件</p>
+</blockquote>
+<p>基本原理:</p>
+<blockquote>
+<p>用户进程向内核传递fds数组, 不像select一样有描述符数目限制<br>poll对应的是内核的sys_poll, 依然是对fds数组中的每个pollfd进行poll, 检查其事件发生, 修改revents字段报告该事件<br>poll返回后, 逐一检查fds数组中每个pollfd的revents</p>
+</blockquote>
+<h1 id="epoll"><a href="#epoll" class="headerlink" title="epoll"></a>epoll</h1><p>epoll的函数接口:</p>
+<pre><code>int epoll_create(int size);
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
+int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout);
+
+typedef union epoll_data {
+    void *ptr;
+    int fd;
+    __uint32_t u32;
+    __uint64_t u64;
+}epoll_data_t;
+
+typedef struct epoll_event {
+    __uint32_t events;
+    epoll_data data;
+};
+</code></pre><p>参数说明:</p>
+<blockquote>
+<p>size: epoll并不限制监视的文件描述符数目, 这只是对内核的初始化建议<br>events: epoll_wait的第二个参数用于存放结果</p>
+</blockquote>
+<p>基本原理:</p>
+<blockquote>
+<p>用户进程通过epoll_create创建epoll描述符, 返回的int型就是epoll描述符的值, -1表示创建失败<br>通过epoll_ctl为某个fd进行添加、删除、修改事件, 即op为EPOLL_CTL_ADD, EPOLL_CTL_DEL, EPOLL_CTL_MOD, 关联的事件为event<br>epoll_wait等待io事件, 该调用会返回活跃描述符(发生了监听事件的描述符)</p>
+</blockquote>
+<h1 id="epoll相对于select和poll的优点"><a href="#epoll相对于select和poll的优点" class="headerlink" title="epoll相对于select和poll的优点"></a>epoll相对于select和poll的优点</h1><ol>
+<li>相对于select, epoll监视描述符没有数量限制, 理论上是你的进程可以打开的描述符的最大数目;</li>
+<li>IO效率并不随监视描述符数目增加而明显下降, <strong>epoll并不像select和poll那样轮询</strong>, 而是<strong>通过给每个监视的文件描述符注册回调函数</strong>实现, 当某个监视的文件描述符上发生了监视的事件后, 触发回调将自己写入结果中, 这样每次epoll返回的总是活跃的文件描述符集, 避免了在select和poll的使用中用户依然需要逐一检查描述符导致的性能下降;</li>
+<li>对监视事件有电平触发和边沿触发两种触发方式, 其中边沿触发的性能极高, 只是应用逻辑会稍复杂;</li>
+<li>内核和用户进程通过共享内存的方式传递信息, 主要是内核和用户空间通过Linux的mmap映射同一块内存, 这样减少了多次内存拷贝的性能开销。</li>
+</ol>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/服务器/">服务器</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/网络IO/">网络IO</a><a href="/tags/技术/">技术</a><a href="/tags/网络编程/">网络编程</a><a href="/tags/Linux/">Linux</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="https://cyrusin.github.io/2015/11/15/iomultiplexing-20151115/" data-title="Linux的IO多路复用: select/poll/epoll | AsyncWay" data-tsina="3024687697" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2015/11/27/lua-20151127/" title="Nginx与Lua: 一种利用error_page实现鉴权服务故障转移的尝试">
+  <strong>上一篇：</strong><br/>
+  <span>
+  Nginx与Lua: 一种利用error_page实现鉴权服务故障转移的尝试</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/11/06/coroutine-20151106/"  title="两种协程的调度方式: trampoline、thread scheduler">
+ <strong>下一篇：</strong><br/> 
+ <span>两种协程的调度方式: trampoline、thread scheduler
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section id="comments" class="comment">
+	<div class="ds-thread" data-thread-key="2015/11/15/iomultiplexing-20151115/" data-title="Linux的IO多路复用: select/poll/epoll" data-url="https://cyrusin.github.io/2015/11/15/iomultiplexing-20151115/"></div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#select"><span class="toc-number">1.</span> <span class="toc-text">select</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#poll"><span class="toc-number">2.</span> <span class="toc-text">poll</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#epoll"><span class="toc-number">3.</span> <span class="toc-text">epoll</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#epoll相对于select和poll的优点"><span class="toc-number">4.</span> <span class="toc-text">epoll相对于select和poll的优点</span></a></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/Hexo/" title="Hexo">Hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Memcached/" title="Memcached">Memcached<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/MongoDB/" title="MongoDB">MongoDB<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Nginx/" title="Nginx">Nginx<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Python/" title="Python">Python<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Redis/" title="Redis">Redis<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/Tornado/" title="Tornado">Tornado<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/协程/" title="协程">协程<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/技术/" title="技术">技术<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/服务器/" title="服务器">服务器<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/算法/" title="算法">算法<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/技术/" title="技术">技术<sup>16</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Python/" title="Python">Python<sup>15</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Tornado/" title="Tornado">Tornado<sup>4</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/项目/" title="项目">项目<sup>4</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/网络IO/" title="网络IO">网络IO<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/网络编程/" title="网络编程">网络编程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Nginx/" title="Nginx">Nginx<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Lua/" title="Lua">Lua<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MongoDB/" title="MongoDB">MongoDB<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Redis/" title="Redis">Redis<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Linux/" title="Linux">Linux<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/二分查找/" title="二分查找">二分查找<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Memcached/" title="Memcached">Memcached<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/mongoengine/" title="mongoengine">mongoengine<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/算法/" title="算法">算法<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/Motor/" title="Motor">Motor<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/C/" title="C">C<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/日志/" title="日志">日志<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/协程/" title="协程">协程<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://toutiao.io/" target="_blank" title="开发者的首选阅读分享平台">开发者头条</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://blog.jobbole.com/" target="_blank" title="伯乐在线">伯乐在线</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://planetpython.org/" target="_blank" title="PlanetPython">PlanetPython</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://lucumr.pocoo.org/" target="_blank" title="Pycoder's Weekly">PyCoder&#39;sWeekly</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://www.pythonweekly.com/" target="_blank" title="PythonWeekly">PythonWeekly</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://importpython.com/newsletter/" target="_blank" title="ImportPythonWeekly">ImportPythonWeekly</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://www.fullstackpython.com/" target="_blank" title="FullstackPython">FullstackPython</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="https://python.zeef.com/alan.richmond" target="_blank" title="PythonZEEF">PythonZEEF</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="https://www.reddit.com/r/python" target="_blank" title="PythonSubreddit">PythonSubreddit</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://jessenoller.com/good-to-great-python-reads/" target="_blank" title="a collection of python must-reads">python-must-reads</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="https://www.jeffknupp.com/" target="_blank" title="Jeff Knupp的blog">WritingIdiomaticPython</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/mixlee/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=3024687697&verifier=8ee35701&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello ,I&#39;m a developer focus on backend technology of web. <br/>
+			This is my blog, thanks for reading it.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://weibo.com/xiaolee123" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/cyrusin" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/2541392" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		<a href="https://twitter.com/xiaoLeeV5" target="_blank" class="icon-twitter" title="twitter"></a>
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/mixlee" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		<a href="https://www.zhihu.com/people/cyrusin" target="_blank" class="icon-zhihu" title="知乎"></a>
+		
+		
+		
+		<a href="mailto:lysh0526@gmail.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2016 
+		
+		<a href="https://cyrusin.github.io/about" target="_blank" title="Li Shuai">Li Shuai</a>
+		
+		
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<a href="#" class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#nothing"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+});     
+</script>
+
+
+
+<script type="text/javascript">
+  var duoshuoQuery = {short_name:"cyrusin"};
+  (function() {
+    var ds = document.createElement('script');
+    ds.type = 'text/javascript';ds.async = true;
+    ds.src = '//static.duoshuo.com/embed.js';
+    ds.charset = 'UTF-8';
+    (document.getElementsByTagName('head')[0] 
+    || document.getElementsByTagName('body')[0]).appendChild(ds);
+  })();
+</script> 
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+<script type="text/javascript">
+var _bdhmProtocol = (("https:" == document.location.protocol) ? " https://" : " http://");
+document.write(unescape("%3Cscript src='" + _bdhmProtocol + "hm.baidu.com/h.js%3F62acfc9311f41b2f234045e170daea66' type='text/javascript'%3E%3C/script%3E"));
+</script>
+
+
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+
+  </body>
+</html>
